@@ -86,7 +86,6 @@ def generate_avatar_only():
 
     if key != SECRET_KEY:
         return "🚫 مفتاح غير صحيح", 403
-
     if not uid:
         return "يرجى تحديد UID", 400
 
@@ -111,20 +110,24 @@ def generate_avatar_only():
     img = bg_img.copy()
     draw = ImageDraw.Draw(img)
 
-    avatar_img = fetch_image(f"https://freefireinfo.vercel.app/icon?id={avatar_id}", AVATAR_SIZE)
+    # عرض الصورة الرمزية (Avatar)
+    avatar_img = fetch_image(f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis", AVATAR_SIZE)
     avatar_x, avatar_y = 90, 82
     if avatar_img:
         img.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
 
+    # رسم المستوى
     level_text = f"Lv. {level}"
     level_x = avatar_x - 40
     level_y = avatar_y + 160
     smart_draw_text(draw, (level_x, level_y), level_text, fonts, 50, "black")
 
+    # رسم الاسم
     nickname_x = avatar_x + AVATAR_SIZE[0] + 80
     nickname_y = avatar_y - 3
     smart_draw_text(draw, (nickname_x, nickname_y), nickname, fonts, 50, "black")
 
+    # رسم UID
     bbox_uid = fonts["primary"][35].getbbox(uid)
     text_w = bbox_uid[2] - bbox_uid[0]
     text_h = bbox_uid[3] - bbox_uid[1]
@@ -133,6 +136,7 @@ def generate_avatar_only():
     text_y = img_h - text_h - 17
     smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")
 
+    # رسم عدد الإعجابات
     likes_text = f"{likes}"
     bbox_likes = fonts["primary"][40].getbbox(likes_text)
     likes_w = bbox_likes[2] - bbox_likes[0]
@@ -140,6 +144,7 @@ def generate_avatar_only():
     likes_x = img_w - likes_w - 60
     smart_draw_text(draw, (likes_x, likes_y), likes_text, fonts, 40, "black")
 
+    # كتابة اسم المطور
     dev_text = "DEV BY : BNGX"
     bbox_dev = fonts["primary"][30].getbbox(dev_text)
     dev_w = bbox_dev[2] - bbox_dev[0]
@@ -148,8 +153,11 @@ def generate_avatar_only():
     dev_y = padding
     smart_draw_text(draw, (dev_x, dev_y), dev_text, fonts, 30, "white")
 
+    # حفظ الصورة وإرسالها
     output = BytesIO()
     img.save(output, format='PNG')
     output.seek(0)
     return send_file(output, mimetype='image/png')
 
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

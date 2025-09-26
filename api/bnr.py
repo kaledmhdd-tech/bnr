@@ -91,7 +91,7 @@ def generate_avatar_only():
 
     # جلب معلومات اللاعب من الرابط الجديد
     try:
-        api_url = f"https://info-self-one.vercel.app/get?uid={uid}"
+        api_url = f"https://info-six-theta.vercel.app/get?uid={uid}"
         res = requests.get(api_url, timeout=5)
         res.raise_for_status()
         data = res.json()

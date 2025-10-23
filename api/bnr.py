@@ -96,10 +96,10 @@ def generate_avatar_only():
         res.raise_for_status()
         data = res.json()
         account_info = data.get("AccountInfo", {})
-        nickname = account_info.get("AccountName", "Unknown")
-        likes = account_info.get("AccountLikes", 0)
-        level = account_info.get("AccountLevel", 0)
-        avatar_id = account_info.get("AccountAvatarId")
+        nickname = account_info.get("nickname", "Unknown")
+        likes = account_info.get("liked", 0)
+        level = account_info.get("level", 0)
+        avatar_id = account_info.get("avatarId")
     except Exception as e:
         return f"❌ فشل في جلب البيانات: {e}", 500
 

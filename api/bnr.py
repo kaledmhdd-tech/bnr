@@ -2,9 +2,7 @@ from flask import Flask, request, send_file
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
-
 app = Flask(__name__)
-
 AVATAR_SIZE = (125, 125)
 FONT_PRIMARY = "Tajawal-Bold.ttf"
 FONT_FALLBACKS = [
@@ -18,7 +16,7 @@ FONT_FALLBACKS = [
 ]
 SECRET_KEY = "BNGX"
 
-# تحميل الخطوط مسبقًا
+#LOAD FONTSSS
 def load_fonts(sizes):
     fonts = {"primary": {}, "fallbacks": []}
     for size in sizes:
@@ -85,11 +83,10 @@ def generate_avatar_only():
     key = request.args.get("key")
 
     if key != SECRET_KEY:
-        return "🚫 مفتاح غير صحيح", 403
+        return " KEY  ", 403
     if not uid:
-        return "يرجى تحديد UID", 400
+        return "INVALID  UID", 400
 
-    # جلب معلومات اللاعب من الرابط الجديد
     try:
         api_url = f"https://info-six-neon.vercel.app/get?uid={uid}"
         res = requests.get(api_url, timeout=5)
@@ -101,50 +98,38 @@ def generate_avatar_only():
         level = account_info.get("level", 0)
         avatar_id = account_info.get("avatarId")
     except Exception as e:
-        return f"❌ فشل في جلب البيانات: {e}", 500
+        return f" API INFO   : {e}", 500
 
     bg_img = fetch_image("https://i.postimg.cc/L4PQBgmx/IMG-20250807-042134-670.jpg")
     if not bg_img:
-        return "❌ فشل في تحميل الخلفية", 500
+        return " IMAGE   ", 500
 
     img = bg_img.copy()
     draw = ImageDraw.Draw(img)
-
-    # عرض الصورة الرمزية (Avatar)
     avatar_img = fetch_image(f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis", AVATAR_SIZE)
     avatar_x, avatar_y = 90, 82
     if avatar_img:
         img.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
-
-    # رسم المستوى
     level_text = f"Lv. {level}"
     level_x = avatar_x - 40
     level_y = avatar_y + 160
     smart_draw_text(draw, (level_x, level_y), level_text, fonts, 50, "black")
-
-    # رسم الاسم
     nickname_x = avatar_x + AVATAR_SIZE[0] + 80
     nickname_y = avatar_y - 3
     smart_draw_text(draw, (nickname_x, nickname_y), nickname, fonts, 50, "black")
-
-    # رسم UID
     bbox_uid = fonts["primary"][35].getbbox(uid)
     text_w = bbox_uid[2] - bbox_uid[0]
     text_h = bbox_uid[3] - bbox_uid[1]
     img_w, img_h = img.size
     text_x = img_w - text_w - 110
     text_y = img_h - text_h - 17
-    smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")
-
-    # رسم عدد الإعجابات
+    smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")  
     likes_text = f"{likes}"
     bbox_likes = fonts["primary"][40].getbbox(likes_text)
     likes_w = bbox_likes[2] - bbox_likes[0]
     likes_y = text_y - (bbox_likes[3] - bbox_likes[1]) - 25
     likes_x = img_w - likes_w - 60
     smart_draw_text(draw, (likes_x, likes_y), likes_text, fonts, 40, "black")
-
-    # كتابة اسم المطور
     dev_text = "DEV BY : BNGX"
     bbox_dev = fonts["primary"][30].getbbox(dev_text)
     dev_w = bbox_dev[2] - bbox_dev[0]
@@ -152,8 +137,6 @@ def generate_avatar_only():
     dev_x = img_w - dev_w - padding
     dev_y = padding
     smart_draw_text(draw, (dev_x, dev_y), dev_text, fonts, 30, "white")
-
-    # حفظ الصورة وإرسالها
     output = BytesIO()
     img.save(output, format='PNG')
     output.seek(0)

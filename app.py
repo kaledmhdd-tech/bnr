@@ -2,7 +2,9 @@ from flask import Flask, request, send_file
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import requests
+
 app = Flask(__name__)
+
 AVATAR_SIZE = (125, 125)
 FONT_PRIMARY = "Tajawal-Bold.ttf"
 FONT_FALLBACKS = [
@@ -16,7 +18,7 @@ FONT_FALLBACKS = [
 ]
 SECRET_KEY = "BNGX"
 
-#LOAD FONTSSS
+# تحميل الخطوط
 def load_fonts(sizes):
     fonts = {"primary": {}, "fallbacks": []}
     for size in sizes:
@@ -77,59 +79,83 @@ def fetch_image(url, size=None):
         print(f"Error fetching image: {e}")
         return None
 
+
 @app.route('/bnr')
 def generate_avatar_only():
     uid = request.args.get("uid")
     key = request.args.get("key")
 
     if key != SECRET_KEY:
-        return " KEY  ", 403
+        return " KEY ", 403
     if not uid:
-        return "INVALID  UID", 400
+        return "INVALID UID", 400
 
     try:
-        api_url = f"https://info-yo1m.onrender.com/get?uid={uid}&region=ME"
-        res = requests.get(api_url, timeout=10)
+        # ✅ API الجديد
+        api_url = f"https://info-lf8r.onrender.com/api/account?uid={uid}&region=ME"
+        res = requests.get(api_url, timeout=5)
         res.raise_for_status()
         data = res.json()
-        account_info = data.get("AccountInfo", {})
-        nickname = account_info.get("nickname", "Unknown")
-        likes = account_info.get("liked", 0)
-        level = account_info.get("level", 0)
-        avatar_id = account_info.get("avatarId")
-    except Exception as e:
-        return f" API INFO   : {e}", 500
 
+        # ✅ استخراج من basicInfo و profileInfo
+        basic_info = data.get("basicInfo", {})
+        profile_info = data.get("profileInfo", {})
+
+        nickname = basic_info.get("nickname", "Unknown")
+        likes = basic_info.get("liked", 0)
+        level = basic_info.get("level", 0)
+        avatar_id = profile_info.get("avatarId", 0)
+
+    except Exception as e:
+        return f" API INFO ERROR : {e}", 500
+
+    # الخلفية
     bg_img = fetch_image("https://i.postimg.cc/L4PQBgmx/IMG-20250807-042134-670.jpg")
     if not bg_img:
-        return " IMAGE   ", 500
+        return " IMAGE ERROR ", 500
 
     img = bg_img.copy()
     draw = ImageDraw.Draw(img)
-    avatar_img = fetch_image(f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis", AVATAR_SIZE)
+
+    # الصورة الشخصية
+    avatar_img = fetch_image(
+        f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis",
+        AVATAR_SIZE
+    )
+
     avatar_x, avatar_y = 90, 82
     if avatar_img:
         img.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
+
+    # المستوى
     level_text = f"Lv. {level}"
     level_x = avatar_x - 40
     level_y = avatar_y + 160
     smart_draw_text(draw, (level_x, level_y), level_text, fonts, 50, "black")
+
+    # الاسم
     nickname_x = avatar_x + AVATAR_SIZE[0] + 80
     nickname_y = avatar_y - 3
     smart_draw_text(draw, (nickname_x, nickname_y), nickname, fonts, 50, "black")
+
+    # UID
     bbox_uid = fonts["primary"][35].getbbox(uid)
     text_w = bbox_uid[2] - bbox_uid[0]
     text_h = bbox_uid[3] - bbox_uid[1]
     img_w, img_h = img.size
     text_x = img_w - text_w - 110
     text_y = img_h - text_h - 17
-    smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")  
+    smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")
+
+    # عدد اللايكات
     likes_text = f"{likes}"
     bbox_likes = fonts["primary"][40].getbbox(likes_text)
     likes_w = bbox_likes[2] - bbox_likes[0]
     likes_y = text_y - (bbox_likes[3] - bbox_likes[1]) - 25
     likes_x = img_w - likes_w - 60
     smart_draw_text(draw, (likes_x, likes_y), likes_text, fonts, 40, "black")
+
+    # تذييل المطور
     dev_text = "DEV BY : BNGX"
     bbox_dev = fonts["primary"][30].getbbox(dev_text)
     dev_w = bbox_dev[2] - bbox_dev[0]
@@ -137,10 +163,13 @@ def generate_avatar_only():
     dev_x = img_w - dev_w - padding
     dev_y = padding
     smart_draw_text(draw, (dev_x, dev_y), dev_text, fonts, 30, "white")
+
+    # إخراج الصورة
     output = BytesIO()
     img.save(output, format='PNG')
     output.seek(0)
     return send_file(output, mimetype='image/png')
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

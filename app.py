@@ -79,7 +79,6 @@ def fetch_image(url, size=None):
         print(f"Error fetching image: {e}")
         return None
 
-
 @app.route('/bnr')
 def generate_avatar_only():
     uid = request.args.get("uid")
@@ -91,13 +90,13 @@ def generate_avatar_only():
         return "INVALID UID", 400
 
     try:
-        # ✅ API الجديد
-        api_url = f"https://info-lf8r.onrender.com/api/account?uid={uid}&region=ME"
+        # ✅ رابط API الجديد
+        api_url = f"https://info-five-mauve.vercel.app/accinfo?uid={uid}&region=IND"
         res = requests.get(api_url, timeout=5)
         res.raise_for_status()
         data = res.json()
 
-        # ✅ استخراج من basicInfo و profileInfo
+        # ✅ استخراج البيانات
         basic_info = data.get("basicInfo", {})
         profile_info = data.get("profileInfo", {})
 

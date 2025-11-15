@@ -92,7 +92,7 @@ def generate_avatar_only():
     try:
         # ✅ رابط API الجديد
         api_url = f"https://info-five-mauve.vercel.app/accinfo?uid={uid}&region=IND"
-        res = requests.get(api_url, timeout=5)
+        res = requests.get(api_url, timeout=15)
         res.raise_for_status()
         data = res.json()
 

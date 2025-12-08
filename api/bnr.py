@@ -79,6 +79,45 @@ def fetch_image(url, size=None):
         print(f"Error fetching image: {e}")
         return None
 
+def fetch_avatar_image(avatar_id, head_pic, banner_id):
+    """محاولة جلب الصورة من مصادر مختلفة"""
+    # قائمة IDs المحتملة للصورة الشخصية
+    potential_ids = []
+    
+    # إضافة جميع IDs الممكنة
+    if avatar_id:
+        potential_ids.append(avatar_id)
+    if head_pic:
+        potential_ids.append(head_pic)
+    if banner_id:
+        potential_ids.append(banner_id)
+    
+    print(f"Trying avatar IDs: {potential_ids}")
+    
+    # محاولة كل ID
+    for img_id in potential_ids:
+        try:
+            url = f"https://pika-ffitmes-api.vercel.app/?item_id={img_id}&watermark=TaitanApi&key=PikaApis"
+            print(f"Trying URL: {url}")
+            res = requests.get(url, timeout=5)
+            res.raise_for_status()
+            
+            # التحقق مما إذا كان المحتوى صورة
+            content = res.content
+            if content and len(content) > 100:  # صورة حقيقية عادةً تكون أكبر من 100 بايت
+                img = Image.open(BytesIO(content)).convert("RGBA")
+                img.verify()  # التحقق من صحة الصورة
+                img = Image.open(BytesIO(content)).convert("RGBA")  # إعادة فتح بعد التحقق
+                print(f"Successfully loaded image ID: {img_id}")
+                return img
+        except Exception as e:
+            print(f"Failed to load image ID {img_id}: {e}")
+            continue
+    
+    # إذا فشلت جميع المحاولات، استخدم صورة افتراضية
+    print("All avatar IDs failed, using default image")
+    return None
+
 
 @app.route('/bnr')
 def generate_avatar_only():
@@ -104,7 +143,13 @@ def generate_avatar_only():
         nickname = basic_info.get("nickname", "Unknown")
         likes = basic_info.get("liked", 0)
         level = basic_info.get("level", 0)
-        avatar_id = profile_info.get("avatarId", 0)
+        
+        # استخراج جميع IDs المحتملة للصورة الشخصية
+        avatar_id = profile_info.get("avatarId")
+        head_pic = basic_info.get("headPic")
+        banner_id = basic_info.get("bannerId")
+        
+        print(f"Extracted IDs - avatarId: {avatar_id}, headPic: {head_pic}, bannerId: {banner_id}")
 
     except Exception as e:
         return f" API INFO ERROR : {e}", 500
@@ -117,15 +162,18 @@ def generate_avatar_only():
     img = bg_img.copy()
     draw = ImageDraw.Draw(img)
 
-    # الصورة الشخصية
-    avatar_img = fetch_image(
-        f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis",
-        AVATAR_SIZE
-    )
-
+    # الصورة الشخصية - محاولة جميع IDs الممكنة
+    avatar_img = fetch_avatar_image(avatar_id, head_pic, banner_id)
+    
     avatar_x, avatar_y = 90, 82
     if avatar_img:
+        avatar_img = avatar_img.resize(AVATAR_SIZE, Image.LANCZOS)
         img.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
+    else:
+        # إذا لم تنجح أي صورة، استخدم صورة افتراضية
+        print("Using default avatar")
+        default_avatar = Image.new('RGBA', AVATAR_SIZE, (100, 100, 150, 200))
+        img.paste(default_avatar, (avatar_x, avatar_y), default_avatar)
 
     # المستوى
     level_text = f"Lv. {level}"
@@ -172,4 +220,4 @@ def generate_avatar_only():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

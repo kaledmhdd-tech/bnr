@@ -91,7 +91,7 @@ def generate_avatar_only():
 
     # جلب معلومات اللاعب من الرابط الجديد
     try:
-        api_url = f"https://info-gamma-lilac.vercel.app/get?uid={uid}"
+        api_url = f"https://info-eight-rho.vercel.app/accinfo?uid={uid}&region=IND"
         res = requests.get(api_url, timeout=5)
         res.raise_for_status()
         data = res.json()

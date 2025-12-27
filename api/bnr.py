@@ -5,7 +5,10 @@ import requests
 
 app = Flask(__name__)
 
+# ================== الإعدادات ==================
 AVATAR_SIZE = (125, 125)
+SECRET_KEY = "BNGX"
+
 FONT_PRIMARY = "Tajawal-Bold.ttf"
 FONT_FALLBACKS = [
     "DejaVuSans.ttf",
@@ -16,148 +19,188 @@ FONT_FALLBACKS = [
     "NotoSansCJKjp-Regular.otf",
     "unifont-15.0.01.ttf"
 ]
-SECRET_KEY = "BNGX"
 
-# تحميل الخطوط مسبقًا
+# ================== تحميل الخطوط ==================
 def load_fonts(sizes):
     fonts = {"primary": {}, "fallbacks": []}
+
     for size in sizes:
         try:
             fonts["primary"][size] = ImageFont.truetype(FONT_PRIMARY, size)
         except:
             fonts["primary"][size] = ImageFont.load_default()
-    for font_path in FONT_FALLBACKS:
-        fallback_fonts = {}
+
+    for path in FONT_FALLBACKS:
+        fb = {}
         for size in sizes:
             try:
-                fallback_fonts[size] = ImageFont.truetype(font_path, size)
+                fb[size] = ImageFont.truetype(path, size)
             except:
-                fallback_fonts[size] = None
-        fonts["fallbacks"].append(fallback_fonts)
+                fb[size] = None
+        fonts["fallbacks"].append(fb)
+
     return fonts
+
 
 fonts = load_fonts([30, 35, 40, 50])
 
+# ================== أدوات النص ==================
 def char_in_font(char, font):
     try:
-        glyph = font.getmask(char)
-        return glyph.getbbox() is not None
+        return font.getmask(char).getbbox() is not None
     except:
         return False
 
-def smart_draw_text(draw, position, text, font_dict, size, fill):
-    x, y = position
-    primary_font = font_dict["primary"][size]
-    fallbacks = font_dict["fallbacks"]
 
-    for char in text:
-        font_to_use = None
-        if char_in_font(char, primary_font):
-            font_to_use = primary_font
-        else:
-            for fb_fonts in fallbacks:
-                fb_font = fb_fonts[size]
-                if fb_font and char_in_font(char, fb_font):
-                    font_to_use = fb_font
+def smart_draw_text(draw, pos, text, font_dict, size, color):
+    x, y = pos
+    primary = font_dict["primary"][size]
+
+    for ch in text:
+        font = primary
+        if not char_in_font(ch, primary):
+            for fb in font_dict["fallbacks"]:
+                if fb[size] and char_in_font(ch, fb[size]):
+                    font = fb[size]
                     break
-        if not font_to_use:
-            font_to_use = primary_font
 
-        draw.text((x, y), char, font=font_to_use, fill=fill)
-        char_width = font_to_use.getbbox(char)[2] - font_to_use.getbbox(char)[0]
-        x += char_width
+        draw.text((x, y), ch, font=font, fill=color)
+        box = font.getbbox(ch)
+        x += box[2] - box[0]
 
+
+# ================== جلب الصور ==================
 def fetch_image(url, size=None):
     try:
-        res = requests.get(url, timeout=5)
-        res.raise_for_status()
-        img = Image.open(BytesIO(res.content)).convert("RGBA")
+        r = requests.get(url, timeout=6)
+        r.raise_for_status()
+        img = Image.open(BytesIO(r.content)).convert("RGBA")
         if size:
             img = img.resize(size, Image.LANCZOS)
         return img
     except Exception as e:
-        print(f"Error fetching image: {e}")
+        print("IMG ERROR:", e)
         return None
 
-@app.route('/bnr')
-def generate_avatar_only():
+
+# ================== API البنر ==================
+@app.route("/bnr")
+def banner_api():
     uid = request.args.get("uid")
     key = request.args.get("key")
 
     if key != SECRET_KEY:
-        return "🚫 مفتاح غير صحيح", 403
-    if not uid:
-        return "يرجى تحديد UID", 400
+        return "🚫 KEY غير صحيح", 403
 
-    # جلب معلومات اللاعب من الرابط الجديد
+    if not uid:
+        return "❌ UID مطلوب", 400
+
+    # ---------- جلب بيانات اللاعب ----------
     try:
-        api_url = f"https://info-eight-rho.vercel.app/accinfo?uid={uid}&region=IND"
-        res = requests.get(api_url, timeout=5)
+        api_url = f"https://info-eight-rho.vercel.app/accinfo?uid={uid}&region=ME"
+        res = requests.get(api_url, timeout=6)
         res.raise_for_status()
         data = res.json()
-        account_info = data.get("AccountInfo", {})
-        nickname = account_info.get("AccountName", "Unknown")
-        likes = account_info.get("AccountLikes", 0)
-        level = account_info.get("AccountLevel", 0)
-        avatar_id = account_info.get("AccountAvatarId")
-    except Exception as e:
-        return f"❌ فشل في جلب البيانات: {e}", 500
 
-    bg_img = fetch_image("https://i.postimg.cc/L4PQBgmx/IMG-20250807-042134-670.jpg")
+        basic = data.get("basicInfo", {})
+        profile = data.get("profileInfo", {})
+
+        uid = basic.get("accountId", uid)
+        nickname = basic.get("nickname", "UNKNOWN")
+        level = basic.get("level", 0)
+        likes = basic.get("liked", 0)
+        avatar_id = profile.get("avatarId")
+        banner_id = basic.get("bannerId")
+
+    except Exception as e:
+        return f"❌ API ERROR: {e}", 500
+
+    # ---------- تحميل البنر ----------
+    bg_img = fetch_image(
+        f"https://pika-ffitmes-api.vercel.app/?item_id={banner_id}&key=PikaApis"
+    )
+
     if not bg_img:
-        return "❌ فشل في تحميل الخلفية", 500
+        return "❌ فشل تحميل البنر", 500
 
     img = bg_img.copy()
     draw = ImageDraw.Draw(img)
 
-    # عرض الصورة الرمزية (Avatar)
-    avatar_img = fetch_image(f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis", AVATAR_SIZE)
-    avatar_x, avatar_y = 90, 82
+    # ---------- الأفاتار ----------
+    avatar_img = fetch_image(
+        f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&key=PikaApis",
+        AVATAR_SIZE
+    )
+
+    avatar_x, avatar_y = 90, 80
     if avatar_img:
         img.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
 
-    # رسم المستوى
-    level_text = f"Lv. {level}"
-    level_x = avatar_x - 40
-    level_y = avatar_y + 160
-    smart_draw_text(draw, (level_x, level_y), level_text, fonts, 50, "black")
+    # ---------- المستوى ----------
+    smart_draw_text(
+        draw,
+        (avatar_x - 40, avatar_y + 160),
+        f"Lv. {level}",
+        fonts,
+        50,
+        "black"
+    )
 
-    # رسم الاسم
-    nickname_x = avatar_x + AVATAR_SIZE[0] + 80
-    nickname_y = avatar_y - 3
-    smart_draw_text(draw, (nickname_x, nickname_y), nickname, fonts, 50, "black")
+    # ---------- الاسم ----------
+    smart_draw_text(
+        draw,
+        (avatar_x + AVATAR_SIZE[0] + 80, avatar_y - 5),
+        nickname,
+        fonts,
+        50,
+        "black"
+    )
 
-    # رسم UID
-    bbox_uid = fonts["primary"][35].getbbox(uid)
-    text_w = bbox_uid[2] - bbox_uid[0]
-    text_h = bbox_uid[3] - bbox_uid[1]
+    # ---------- UID ----------
+    uid_font = fonts["primary"][35]
+    w = uid_font.getbbox(uid)[2]
     img_w, img_h = img.size
-    text_x = img_w - text_w - 110
-    text_y = img_h - text_h - 17
-    smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")
 
-    # رسم عدد الإعجابات
-    likes_text = f"{likes}"
-    bbox_likes = fonts["primary"][40].getbbox(likes_text)
-    likes_w = bbox_likes[2] - bbox_likes[0]
-    likes_y = text_y - (bbox_likes[3] - bbox_likes[1]) - 25
-    likes_x = img_w - likes_w - 60
-    smart_draw_text(draw, (likes_x, likes_y), likes_text, fonts, 40, "black")
+    smart_draw_text(
+        draw,
+        (img_w - w - 110, img_h - 55),
+        uid,
+        fonts,
+        35,
+        "white"
+    )
 
-    # كتابة اسم المطور
-    dev_text = "DEV BY : BNGX"
-    bbox_dev = fonts["primary"][30].getbbox(dev_text)
-    dev_w = bbox_dev[2] - bbox_dev[0]
-    padding = 30
-    dev_x = img_w - dev_w - padding
-    dev_y = padding
-    smart_draw_text(draw, (dev_x, dev_y), dev_text, fonts, 30, "white")
+    # ---------- الإعجابات ----------
+    likes_txt = str(likes)
+    w2 = fonts["primary"][40].getbbox(likes_txt)[2]
 
-    # حفظ الصورة وإرسالها
-    output = BytesIO()
-    img.save(output, format='PNG')
-    output.seek(0)
-    return send_file(output, mimetype='image/png')
+    smart_draw_text(
+        draw,
+        (img_w - w2 - 60, img_h - 105),
+        likes_txt,
+        fonts,
+        40,
+        "black"
+    )
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    # ---------- توقيع ----------
+    smart_draw_text(
+        draw,
+        (img_w - 300, 25),
+        "DEV BY : BNGX",
+        fonts,
+        30,
+        "white"
+    )
+
+    # ---------- إخراج ----------
+    out = BytesIO()
+    img.save(out, "PNG")
+    out.seek(0)
+
+    return send_file(out, mimetype="image/png")
+
+
+# ================== تشغيل ==================
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

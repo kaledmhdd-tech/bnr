@@ -18,7 +18,7 @@ FONT_FALLBACKS = [
 ]
 SECRET_KEY = "BNGX"
 
-# تحميل الخطوط
+# تحميل الخطوط مسبقًا
 def load_fonts(sizes):
     fonts = {"primary": {}, "fallbacks": []}
     for size in sizes:
@@ -85,59 +85,64 @@ def generate_avatar_only():
     key = request.args.get("key")
 
     if key != SECRET_KEY:
-        return " KEY ", 403
+        return "🚫 مفتاح غير صحيح", 403
     if not uid:
-        return "INVALID UID", 400
+        return "يرجى تحديد UID", 400
 
+    # جلب معلومات اللاعب (توافق الرد الجديد مع القديم)
     try:
-        # ✅ رابط API الجديد
-        api_url = f"https://info-five-mauve.vercel.app/accinfo?uid={uid}&region=IND"
-        res = requests.get(api_url, timeout=15)
+        api_url = f"https://info-eight-rho.vercel.app/accinfo?uid={uid}&region=IND"
+        res = requests.get(api_url, timeout=5)
         res.raise_for_status()
         data = res.json()
 
-        # ✅ استخراج البيانات
-        basic_info = data.get("basicInfo", {})
-        profile_info = data.get("profileInfo", {})
+        basic = data.get("basicInfo", {})
+        profile = data.get("profileInfo", {})
 
-        nickname = basic_info.get("nickname", "Unknown")
-        likes = basic_info.get("liked", 0)
-        level = basic_info.get("level", 0)
-        avatar_id = profile_info.get("avatarId", 0)
+        account_info = {
+            "AccountName": basic.get("nickname", "Unknown"),
+            "AccountLikes": basic.get("liked", 0),
+            "AccountLevel": basic.get("level", 0),
+            "AccountAvatarId": profile.get("avatarId"),
+            "AccountBannerId": basic.get("bannerId")
+        }
+
+        nickname = account_info.get("AccountName", "Unknown")
+        likes = account_info.get("AccountLikes", 0)
+        level = account_info.get("AccountLevel", 0)
+        avatar_id = account_info.get("AccountAvatarId")
 
     except Exception as e:
-        return f" API INFO ERROR : {e}", 500
+        return f"❌ فشل في جلب البيانات: {e}", 500
 
-    # الخلفية
     bg_img = fetch_image("https://i.postimg.cc/L4PQBgmx/IMG-20250807-042134-670.jpg")
     if not bg_img:
-        return " IMAGE ERROR ", 500
+        return "❌ فشل في تحميل الخلفية", 500
 
     img = bg_img.copy()
     draw = ImageDraw.Draw(img)
 
-    # الصورة الشخصية
+    # عرض الصورة الرمزية (Avatar)
     avatar_img = fetch_image(
         f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis",
         AVATAR_SIZE
     )
-
     avatar_x, avatar_y = 90, 82
     if avatar_img:
         img.paste(avatar_img, (avatar_x, avatar_y), avatar_img)
 
-    # المستوى
+    # رسم المستوى
     level_text = f"Lv. {level}"
     level_x = avatar_x - 40
     level_y = avatar_y + 160
     smart_draw_text(draw, (level_x, level_y), level_text, fonts, 50, "black")
 
-    # الاسم
+    # رسم الاسم
     nickname_x = avatar_x + AVATAR_SIZE[0] + 80
     nickname_y = avatar_y - 3
     smart_draw_text(draw, (nickname_x, nickname_y), nickname, fonts, 50, "black")
 
-    # UID
+    # رسم UID
     bbox_uid = fonts["primary"][35].getbbox(uid)
     text_w = bbox_uid[2] - bbox_uid[0]
     text_h = bbox_uid[3] - bbox_uid[1]
@@ -146,7 +151,7 @@ def generate_avatar_only():
     text_y = img_h - text_h - 17
     smart_draw_text(draw, (text_x, text_y), uid, fonts, 35, "white")
 
-    # عدد اللايكات
+    # رسم عدد الإعجابات
     likes_text = f"{likes}"
     bbox_likes = fonts["primary"][40].getbbox(likes_text)
     likes_w = bbox_likes[2] - bbox_likes[0]
@@ -154,7 +159,7 @@ def generate_avatar_only():
     likes_x = img_w - likes_w - 60
     smart_draw_text(draw, (likes_x, likes_y), likes_text, fonts, 40, "black")
 
-    # تذييل المطور
+    # كتابة اسم المطور
     dev_text = "DEV BY : BNGX"
     bbox_dev = fonts["primary"][30].getbbox(dev_text)
     dev_w = bbox_dev[2] - bbox_dev[0]
@@ -163,12 +168,11 @@ def generate_avatar_only():
     dev_y = padding
     smart_draw_text(draw, (dev_x, dev_y), dev_text, fonts, 30, "white")
 
-    # إخراج الصورة
+    # حفظ الصورة وإرسالها
     output = BytesIO()
     img.save(output, format='PNG')
     output.seek(0)
     return send_file(output, mimetype='image/png')
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

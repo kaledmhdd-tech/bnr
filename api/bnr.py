@@ -131,7 +131,7 @@ def generate_avatar_only():
 
     try:
         # ✅ API الجديد
-        api_url = f"https://info-lf8r.onrender.com/api/account?uid={uid}&region=ME"
+        api_url = f"https://info-eight-rho.vercel.app/accinfo?uid={uid}&region=IND"
         res = requests.get(api_url, timeout=40)
         res.raise_for_status()
         data = res.json()
